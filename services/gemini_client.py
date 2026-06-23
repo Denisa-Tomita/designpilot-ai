@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 from google import genai
 from datetime import datetime, UTC
 
-# ALWAYS load .env first
 load_dotenv()
 
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -19,13 +18,11 @@ client = genai.Client(api_key=API_KEY)
 
 
 # -------------------------
-# CACHE UTILITIES
+# CACHE
 # -------------------------
-
 def load_cache():
     if not os.path.exists(CACHE_FILE):
         return {}
-
     with open(CACHE_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -36,48 +33,48 @@ def save_cache(cache):
 
 
 # -------------------------
-# PROMPT NORMALIZATION
+# NORMALIZATION
 # -------------------------
-
 def normalize_user_input(user_input: str) -> str:
     user_input = user_input.strip().lower()
     user_input = re.sub(r"\s+", " ", user_input)
     return user_input
 
-def get_cache_metadata(user_input: str):
-    cache = load_cache()
-
-    normalized_input = normalize_user_input(user_input)
-
-    if normalized_input not in cache:
-        return None
-
-    return {
-        "created_at": cache[normalized_input].get("created_at")
-    }
 
 # -------------------------
-# GEMINI CALL (WITH CACHE)
+# PROJECT INIT
 # -------------------------
+def get_or_create_project(cache, key, user_input):
+    if key not in cache:
+        cache[key] = {
+            "meta": {
+                "input": user_input,
+                "created_at": datetime.now(UTC).isoformat(),
+                "updated_at": datetime.now(UTC).isoformat(),
+                "status": "in_progress"
+            },
+            "agents": {},
+            "exports": {
+                "zip_generated": False
+            }
+        }
+    return cache[key]
 
+
+# =========================================================
+# NORMAL GEMINI CALL (FOR EXPORT / CACHE SAFETY)
+# =========================================================
 def ask_gemini(prompt: str, user_input: str, agent_type: str):
 
     cache = load_cache()
+    key = normalize_user_input(user_input)
 
-    normalized_input = normalize_user_input(user_input)
+    project = get_or_create_project(cache, key, user_input)
 
-    # Create project entry
-    if normalized_input not in cache:
-        cache[normalized_input] = {
-            "created_at": datetime.now(UTC).isoformat()
-        }
+    # cache hit
+    if agent_type in project["agents"]:
+        return project["agents"][agent_type]
 
-    # Cache hit
-    if agent_type in cache[normalized_input]:
-        print(f"⚡ Cache hit ({agent_type})")
-        return cache[normalized_input][agent_type]
-
-    # Gemini call
     response = client.models.generate_content(
         model=GEMINI_MODEL,
         contents=prompt
@@ -85,9 +82,87 @@ def ask_gemini(prompt: str, user_input: str, agent_type: str):
 
     result = response.text
 
-    # Store result
-    cache[normalized_input][agent_type] = result
+    project["agents"][agent_type] = result
+    project["meta"]["updated_at"] = datetime.now(UTC).isoformat()
+
+    required = ["planner", "research", "color", "typography", "copywriter"]
+    if all(a in project["agents"] for a in required):
+        project["meta"]["status"] = "complete"
 
     save_cache(cache)
 
     return result
+
+
+# =========================================================
+# STREAMING GEMINI CALL (FOR UI ONLY)
+# =========================================================
+def ask_gemini_stream(prompt: str, user_input: str, agent_type: str):
+
+    cache = load_cache()
+    key = normalize_user_input(user_input)
+
+    project = get_or_create_project(cache, key, user_input)
+
+    # cache hit
+    if agent_type in project["agents"]:
+        yield project["agents"][agent_type]
+        return
+
+    response = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=prompt,
+        stream=True
+    )
+
+    full_text = ""
+
+    for chunk in response:
+        if hasattr(chunk, "text"):
+            full_text += chunk.text
+            yield full_text
+
+    # save final result AFTER streaming
+    project["agents"][agent_type] = full_text
+    project["meta"]["updated_at"] = datetime.now(UTC).isoformat()
+
+    required = ["planner", "research", "color", "typography", "copywriter"]
+    if all(a in project["agents"] for a in required):
+        project["meta"]["status"] = "complete"
+
+    save_cache(cache)
+
+
+# -------------------------
+# METADATA
+# -------------------------
+def get_cache_metadata(user_input: str):
+    cache = load_cache()
+    key = normalize_user_input(user_input)
+
+    if key not in cache:
+        return None
+
+    project = cache[key]
+
+    return {
+        "created_at": project["meta"]["created_at"],
+        "updated_at": project["meta"]["updated_at"],
+        "status": project["meta"]["status"],
+        "agents_done": list(project["agents"].keys())
+    }
+
+
+# -------------------------
+# OPTIONAL UTILITY
+# -------------------------
+def save_project(cache, key):
+    project = cache[key]
+
+    project["meta"]["updated_at"] = datetime.now(UTC).isoformat()
+
+    required = ["planner", "research", "color", "typography", "copywriter"]
+    if all(a in project["agents"] for a in required):
+        project["meta"]["status"] = "complete"
+
+    save_cache(cache)

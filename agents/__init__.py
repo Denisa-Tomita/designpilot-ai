@@ -10,6 +10,7 @@ from .research import research_brand
 from .colors import generate_colors
 from .typography import generate_typography
 from .copywriter import generate_copy
+from .exporter import export_project
 
 __all__ = [
     "create_plan",
@@ -17,4 +18,5 @@ __all__ = [
     "generate_colors",
     "generate_typography",
     "generate_copy",
+    "export_project",
 ]
