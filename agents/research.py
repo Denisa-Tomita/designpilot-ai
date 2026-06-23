@@ -1,10 +1,12 @@
+from services.gemini_client import ask_gemini
+
 def research_brand(user_input):
     """
     Research Agent:
     Pretends to analyze brand direction and style.
     """
 
-    result = f"""
+    prompt = f"""
     RESEARCH RESULTS
 
     Brand idea: {user_input}
@@ -26,4 +28,8 @@ def research_brand(user_input):
     - natural
     """
 
-    return result
+    return ask_gemini(
+        prompt=prompt,
+        user_input=user_input,
+        agent_type="research"
+    )

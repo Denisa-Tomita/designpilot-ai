@@ -1,3 +1,5 @@
+from services.gemini_client import ask_gemini
+
 def generate_typography(user_input):
     """
     Typography Agent
@@ -5,7 +7,7 @@ def generate_typography(user_input):
     Chooses a font pairing based on the project.
     """
 
-    typography = f"""
+    prompt = f"""
     TYPOGRAPHY SYSTEM
 
     Project:
@@ -29,5 +31,8 @@ def generate_typography(user_input):
     The serif heading creates luxury while
     the sans-serif body improves readability.
     """
-
-    return typography
+    return ask_gemini(
+        prompt=prompt,
+        user_input=user_input,
+        agent_type="typography"
+    )

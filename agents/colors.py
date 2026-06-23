@@ -1,24 +1,25 @@
+from services.gemini_client import ask_gemini
+
+
 def generate_colors(user_input):
-    """
-    Color Agent:
-    Creates a simple brand color palette.
-    """
+    prompt = f"""
+You are a senior brand designer.
 
-    colors = f"""
-    COLOR PALETTE
+Create a professional color palette for this project:
+{user_input}
 
-    Brand: {user_input}
+Return:
+- Primary color (hex + name)
+- Secondary color (hex + name)
+- Accent color (hex + name)
+- Background color (hex + name)
+- Short explanation of why these colors fit
 
-    Primary Color: #3A2416 (deep coffee brown)
-    Secondary Color: #E8D8C4 (warm cream)
-    Accent Color: #C58A3D (gold highlight)
-    Background: #FAF8F5 (soft off-white)
+Make it modern, usable in web design, and consistent with UI/UX best practices.
+"""
 
-    Mood:
-    - warm
-    - premium
-    - natural
-    - elegant
-    """
-
-    return colors
+    return ask_gemini(
+        prompt=prompt,
+        user_input=user_input,
+        agent_type="color"
+    )

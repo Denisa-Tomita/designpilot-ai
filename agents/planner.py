@@ -1,5 +1,7 @@
+from services.gemini_client import ask_gemini
+
 def create_plan(user_input):
-    plan = f"""
+    prompt = f"""
     AI DESIGN PLAN
 
     Project: {user_input}
@@ -12,4 +14,8 @@ def create_plan(user_input):
     6. Export final brand system
     """
 
-    return plan
+    return ask_gemini(
+        prompt=prompt,
+        user_input=user_input,
+        agent_type="planner"
+    )
